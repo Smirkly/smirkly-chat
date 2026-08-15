@@ -1,0 +1,9 @@
+.git
+.github
+.idea
+.ccache
+build-debug
+build-release
+cmake-build-*
+configs/secrets
+*.md

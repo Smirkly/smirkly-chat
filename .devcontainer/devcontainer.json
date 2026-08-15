@@ -1,0 +1,23 @@
+{
+  "name": "smirkly-chat",
+  "dockerComposeFile": [
+    "../docker-compose.devcontainer.yml"
+  ],
+  "service": "smirkly-chat-workspace",
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  "overrideCommand": false,
+  "remoteUser": "developer",
+  "containerUser": "developer",
+  "updateRemoteUserUID": false,
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "llvm-vs-code-extensions.vscode-clangd",
+        "ms-vscode.cmake-tools",
+        "vadimcn.vscode-lldb"
+      ]
+    }
+  },
+  "postCreateCommand": "git config --global --replace-all safe.directory /workspace"
+}

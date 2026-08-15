@@ -1,0 +1,14 @@
+event-threads: 4
+worker-threads: 8
+worker-fs-threads: 4
+logger-level: info
+
+server-port: 8080
+monitor-server-port: 8082
+postgres-dbconnection: postgresql://smirkly_chat:change-me@postgres.internal:5432/smirkly_chat
+
+auth-jwks-url: http://smirkly-auth:8080/auth/v0/.well-known/jwks.json
+auth-jwt-issuer: smirkly-auth
+auth-jwt-audience: smirkly-api
+
+kafka-enabled: false

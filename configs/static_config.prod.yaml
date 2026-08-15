@@ -1,0 +1,115 @@
+config_vars: /app/configs/config_vars.yaml
+
+components_manager:
+    event_thread_pool:
+        threads: $event-threads
+    task_processors:
+        main-task-processor:
+            thread_name: main-worker
+            worker_threads: $worker-threads
+        fs-task-processor:
+            thread_name: fs-worker
+            worker_threads: $worker-fs-threads
+        monitor-task-processor:
+            thread_name: monitor-worker
+            worker_threads: 1
+        producer-task-processor:
+            thread_name: kafka-producer
+            worker_threads: 1
+    default_task_processor: main-task-processor
+
+    components:
+        server:
+            listener:
+                port: $server-port
+                task_processor: main-task-processor
+            listener-monitor:
+                port: $monitor-server-port
+                task_processor: monitor-task-processor
+        logging:
+            fs-task-processor: fs-task-processor
+            loggers:
+                default:
+                    file_path: '@stderr'
+                    level: $logger-level
+                    overflow_behavior: discard
+        dynamic-config:
+            updates-enabled: false
+            defaults:
+                HTTP_CLIENT_CONNECTION_POOL_SIZE: 100
+                POSTGRES_DEFAULT_COMMAND_CONTROL:
+                    network_timeout_ms: 1000
+                    statement_timeout_ms: 1000
+                REDIS_DEFAULT_COMMAND_CONTROL:
+                    timeout_all_ms: 1000
+                    timeout_single_ms: 500
+                    max_retries: 1
+        postgres-chat:
+            dbconnection: $postgres-dbconnection
+            blocking_task_processor: fs-task-processor
+            sync-start: true
+        default-secdist-provider:
+            missing-ok: false
+            environment-secrets-key: SECDIST_CONFIG
+        secdist: {}
+        redis-chat:
+            groups:
+              - config_name: chat-redis
+                db: chat-redis
+                sharding_strategy: RedisStandalone
+            subscribe_groups:
+              - config_name: chat-redis
+                db: chat-redis-subscribe
+                sharding_strategy: RedisStandalone
+            thread_pools:
+                redis_thread_pool_size: 4
+                sentinel_thread_pool_size: 1
+        kafka-producer-chat:
+            load-enabled: $kafka-enabled
+            client_id: smirkly-chat
+            delivery_timeout: 10s
+            queue_buffering_max: 100ms
+            enable_idempotence: true
+            security_protocol: PLAINTEXT
+        http-client:
+        http-client-middleware-pipeline:
+        http-client-core:
+            fs-task-processor: fs-task-processor
+            user-agent: smirkly-chat
+        dns-client:
+            fs-task-processor: fs-task-processor
+        chat-jwks-verifier:
+            jwks-url: $auth-jwks-url
+            issuer: $auth-jwt-issuer
+            audience: $auth-jwt-audience
+            cache-ttl-seconds: 300
+            request-timeout-ms: 2000
+        handler-chat-websocket:
+            path: /chat/v0/ws
+            method: GET
+            task_processor: main-task-processor
+            max-remote-payload: 65536
+            fragment-size: 65536
+        handler-health-live:
+            path: /health/live
+            method: GET
+            task_processor: main-task-processor
+            throttling_enabled: false
+        handler-health-ready:
+            path: /health/ready
+            method: GET
+            task_processor: main-task-processor
+            throttling_enabled: false
+            postgres-component: postgres-chat
+            redis-component: redis-chat
+            redis-client-name: chat-redis
+        handler-ping:
+            path: /ping
+            method: GET
+            task_processor: main-task-processor
+            throttling_enabled: false
+        handler-server-monitor:
+            path: /service/monitor
+            method: GET
+            task_processor: monitor-task-processor
+            format: prometheus

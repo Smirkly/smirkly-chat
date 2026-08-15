@@ -1,0 +1,14 @@
+event-threads: 2
+worker-threads: 4
+worker-fs-threads: 2
+logger-level: debug
+
+server-port: 8080
+monitor-server-port: 8082
+postgres-dbconnection: postgresql://smirkly_chat:smirkly_chat@smirkly-chat-postgres:5432/smirkly_chat
+
+auth-jwks-url: http://host.docker.internal:8080/auth/v0/.well-known/jwks.json
+auth-jwt-issuer: smirkly-auth
+auth-jwt-audience: smirkly-api
+
+kafka-enabled: false

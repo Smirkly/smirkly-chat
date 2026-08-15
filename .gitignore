@@ -1,0 +1,12 @@
+.DS_Store
+.idea/
+.cache/
+.ccache/
+build-*/
+cmake-build-*/
+compile_commands.json
+__pycache__/
+.pytest_cache/
+*.pyc
+configs/config_vars.prod.yaml
+configs/secrets/

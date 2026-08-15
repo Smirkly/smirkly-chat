@@ -1,0 +1,100 @@
+services:
+  smirkly-chat-postgres:
+    image: postgres:16
+    container_name: smirkly-chat-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smirkly_chat
+      POSTGRES_USER: smirkly_chat
+      POSTGRES_PASSWORD: smirkly_chat
+    ports:
+      - "5433:5432"
+    volumes:
+      - chat-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smirkly_chat -d smirkly_chat"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  smirkly-chat-redis:
+    image: redis:7.4.2-alpine
+    container_name: smirkly-chat-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6380:6379"
+    volumes:
+      - chat-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  smirkly-chat-kafka:
+    profiles: ["kafka"]
+    image: apache/kafka:3.9.0
+    container_name: smirkly-chat-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://smirkly-chat-kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@smirkly-chat-kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    ports:
+      - "9092:9092"
+
+  smirkly-chat-workspace:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+      target: dev
+    image: smirkly-chat:dev
+    container_name: smirkly-chat-workspace
+    user: developer
+    depends_on:
+      smirkly-chat-postgres:
+        condition: service_healthy
+      smirkly-chat-redis:
+        condition: service_healthy
+    working_dir: /workspace
+    environment:
+      CCACHE_DIR: /workspace/.ccache
+      CPM_SOURCE_CACHE: /workspace/.ccache/cpm
+      HOME: /home/developer
+      SHELL: /bin/bash
+      USERVER_ENABLE_STACK_USAGE_MONITOR: "0"
+      XDG_CACHE_HOME: /.jbdevcontainer
+      XDG_CONFIG_HOME: /.jbdevcontainer/config
+      XDG_DATA_HOME: /.jbdevcontainer/data
+      SECDIST_CONFIG: >-
+        {"redis_settings":{"chat-redis":{"password":"","database_index":0,"sentinels":[{"host":"smirkly-chat-redis","port":6379}],"shards":[{"name":"smirkly-chat-redis"}]}},"kafka_settings":{"kafka-producer-chat":{"brokers":"smirkly-chat-kafka:9092","username":"","password":""}}}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8081:8080"
+      - "8082:8082"
+    volumes:
+      - .:/workspace
+      - chat-build-debug:/workspace/build-debug
+      - chat-build-release:/workspace/build-release
+      - chat-ccache:/workspace/.ccache
+    command: sleep infinity
+    init: true
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp=unconfined
+
+volumes:
+  chat-pgdata:
+  chat-redisdata:
+  chat-build-debug:
+  chat-build-release:
+  chat-ccache:

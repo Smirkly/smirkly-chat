@@ -1,0 +1,1 @@
+#include <chat/api/v0/websocket/protocol/event_codec.hpp>

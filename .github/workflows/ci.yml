@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+env:
+  USERVER_ENABLE_STACK_USAGE_MONITOR: "0"
+  CPM_SOURCE_CACHE: ${{ github.workspace }}/.cache/cpm
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install userver v3.0 dependencies
+        run: |
+          deps_url="https://raw.githubusercontent.com/userver-framework/userver/refs/tags/v3.0/scripts/docs/en/deps/ubuntu-24.04.md"
+          sudo apt-get update
+          sudo apt-get install --allow-downgrades --yes $(wget -q -O - "$deps_url") redis-server
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .cache/cpm
+            ~/.cache/ccache
+          key: userver-v3-chat-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
+
+      - name: Debug build and tests
+        run: |
+          cmake --preset debug
+          cmake --build --preset debug --parallel 2
+          ctest --preset debug
+
+      - name: Release build
+        run: |
+          cmake --preset release
+          cmake --build --preset release --parallel 2 --target smirkly-chat
+
+  formatting:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install --yes clang-format
+      - name: Check C++ formatting
+        run: |
+          find src tests/unit -type f \( -name '*.cpp' -o -name '*.hpp' \) -print0 \
+            | xargs -0 clang-format --dry-run --Werror
