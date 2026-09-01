@@ -34,10 +34,9 @@ userver_setup_environment()
 set(SMIRKLY_CHAT_SOURCES
     src/chat/api/health/liveness_handler.cpp
     src/chat/api/health/readiness_handler.cpp
-        src/chat/api/v0/websocket/chat_websocket_handler.cpp
+    src/chat/api/v0/websocket/chat_websocket_handler.cpp
+    src/chat/api/v0/websocket/protocol/event_codec.cpp
     src/chat/platform/auth/jwks_verifier_component.cpp
-        src/chat/api/v0/websocket/protocol/client_envelope.hpp
-        src/chat/api/v0/websocket/protocol/event_codec.cpp
 )
 
 add_library(smirkly-chat-objs OBJECT ${SMIRKLY_CHAT_SOURCES})
@@ -65,6 +64,7 @@ if(SMIRKLY_CHAT_ENABLE_TESTSUITE)
     add_executable(
         smirkly-chat-unittest
         tests/unit/jwt_utils_test.cpp
+        tests/unit/websocket_protocol_test.cpp
     )
     target_link_libraries(
         smirkly-chat-unittest
