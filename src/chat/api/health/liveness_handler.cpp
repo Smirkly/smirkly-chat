@@ -3,8 +3,8 @@
 
 namespace smirkly::chat::api::health {
 
-LivenessHandler::Value LivenessHandler::HandleRequestJsonThrow(const HttpRequest&, const Value&,
-                                                               RequestContext&) const {
+LivenessHandler::Value LivenessHandler::HandleRequestJsonThrow(
+    const HttpRequest&, const Value&, RequestContext&) const {
   userver::formats::json::ValueBuilder response;
   response["status"] = "ok";
   return response.ExtractValue();

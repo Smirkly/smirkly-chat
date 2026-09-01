@@ -6,15 +6,17 @@
 
 namespace smirkly::chat::api::v0 {
 
-class ChatWebsocketHandler final : public userver::server::handlers::WebsocketHandlerBase {
+class ChatWebsocketHandler final
+    : public userver::server::handlers::WebsocketHandlerBase {
  public:
   static constexpr std::string_view kName = "handler-chat-websocket";
 
   ChatWebsocketHandler(const userver::components::ComponentConfig& config,
                        const userver::components::ComponentContext& context);
 
-  bool HandleHandshake(userver::server::http::HttpRequest& request,
-                       userver::server::request::RequestContext& context) const override;
+  bool HandleHandshake(
+      userver::server::http::HttpRequest& request,
+      userver::server::request::RequestContext& context) const override;
 
   void Handle(userver::websocket::WebSocketConnection& websocket,
               userver::server::request::RequestContext& context) const override;

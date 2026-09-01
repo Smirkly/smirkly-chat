@@ -9,7 +9,8 @@
 
 namespace smirkly::chat::api::health {
 
-class ReadinessHandler final : public userver::server::handlers::HttpHandlerJsonBase {
+class ReadinessHandler final
+    : public userver::server::handlers::HttpHandlerJsonBase {
  public:
   static constexpr std::string_view kName = "handler-health-ready";
 

@@ -5,7 +5,8 @@
 
 namespace smirkly::chat::api::health {
 
-class LivenessHandler final : public userver::server::handlers::HttpHandlerJsonBase {
+class LivenessHandler final
+    : public userver::server::handlers::HttpHandlerJsonBase {
  public:
   static constexpr std::string_view kName = "handler-health-live";
 

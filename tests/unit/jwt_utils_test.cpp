@@ -4,7 +4,8 @@
 namespace {
 
 UTEST(BearerToken, ExtractsValidToken) {
-  const auto token = smirkly::chat::platform::auth::ExtractBearerToken("Bearer abc.def.ghi");
+  const auto token =
+      smirkly::chat::platform::auth::ExtractBearerToken("Bearer abc.def.ghi");
   ASSERT_TRUE(token);
   EXPECT_EQ(*token, "abc.def.ghi");
 }

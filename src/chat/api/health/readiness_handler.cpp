@@ -14,8 +14,9 @@
 
 namespace smirkly::chat::api::health {
 
-ReadinessHandler::ReadinessHandler(const userver::components::ComponentConfig& config,
-                                   const userver::components::ComponentContext& context)
+ReadinessHandler::ReadinessHandler(
+    const userver::components::ComponentConfig& config,
+    const userver::components::ComponentContext& context)
     : HttpHandlerJsonBase(config, context),
       postgres_(context
                     .FindComponent<userver::components::Postgres>(
@@ -26,9 +27,8 @@ ReadinessHandler::ReadinessHandler(const userver::components::ComponentConfig& c
                      config["redis-component"].As<std::string>())
                  .GetClient(config["redis-client-name"].As<std::string>())) {}
 
-ReadinessHandler::Value ReadinessHandler::HandleRequestJsonThrow(const HttpRequest& request,
-                                                                 const Value&,
-                                                                 RequestContext&) const {
+ReadinessHandler::Value ReadinessHandler::HandleRequestJsonThrow(
+    const HttpRequest& request, const Value&, RequestContext&) const {
   bool postgres_ok = false;
   bool redis_ok = false;
 
@@ -36,7 +36,8 @@ ReadinessHandler::Value ReadinessHandler::HandleRequestJsonThrow(const HttpReque
     const auto result = postgres_->Execute(
         userver::storages::postgres::ClusterHostType::kMaster,
         userver::storages::postgres::Query{
-            "SELECT 1", userver::storages::postgres::Query::Name{"health.postgres.ping"}});
+            "SELECT 1",
+            userver::storages::postgres::Query::Name{"health.postgres.ping"}});
     postgres_ok = result.AsSingleRow<int>() == 1;
   } catch (const std::exception& error) {
     LOG_WARNING() << "PostgreSQL readiness check failed: " << error.what();
@@ -50,9 +51,9 @@ ReadinessHandler::Value ReadinessHandler::HandleRequestJsonThrow(const HttpReque
   }
 
   const bool ready = postgres_ok && redis_ok;
-  request.GetHttpResponse().SetStatus(ready
-                                          ? userver::server::http::HttpStatus::kOk
-                                          : userver::server::http::HttpStatus::kServiceUnavailable);
+  request.GetHttpResponse().SetStatus(
+      ready ? userver::server::http::HttpStatus::kOk
+            : userver::server::http::HttpStatus::kServiceUnavailable);
 
   userver::formats::json::ValueBuilder response;
   response["status"] = ready ? "ready" : "not_ready";
