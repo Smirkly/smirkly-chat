@@ -36,6 +36,7 @@ set(SMIRKLY_CHAT_SOURCES
         src/chat/api/health/readiness_handler.cpp
         src/chat/api/v0/websocket/chat_websocket_handler.cpp
         src/chat/api/v0/websocket/protocol/event_codec.cpp
+        src/chat/application/usecases/send_message_use_case.cpp
         src/chat/platform/auth/jwks_verifier_component.cpp
 )
 
@@ -49,6 +50,9 @@ set(SMIRKLY_CHAT_DOMAIN_HEADERS
 
 set(SMIRKLY_CHAT_APPLICATION_HEADERS
         src/chat/application/contracts/send_message.hpp
+        src/chat/application/errors/send_message.hpp
+        src/chat/application/ports/message_repository.hpp
+        src/chat/application/usecases/send_message_use_case.hpp
 )
 
 add_library(
@@ -84,6 +88,8 @@ if (SMIRKLY_CHAT_ENABLE_TESTSUITE)
             tests/unit/jwt_utils_test.cpp
             tests/unit/message_test.cpp
             tests/unit/send_message_contract_test.cpp
+            tests/unit/send_message_errors_test.cpp
+            tests/unit/send_message_use_case_test.cpp
             tests/unit/websocket_protocol_test.cpp
     )
     target_link_libraries(
