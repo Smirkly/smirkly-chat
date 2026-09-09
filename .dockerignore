@@ -2,6 +2,7 @@
 .github
 .idea
 .ccache
+.env
 build-debug
 build-release
 cmake-build-*
