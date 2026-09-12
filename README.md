@@ -8,6 +8,8 @@ WebSocket protocol. Message storage and delivery are still in progress.
 ## Development
 
 Open `.devcontainer/devcontainer.json` with CLion Remote Development.
+The devcontainer starts PostgreSQL and applies pending migrations before the
+workspace becomes available.
 
 Run `smirkly-auth` on host port `8080` before connecting to the WebSocket
 endpoint. The chat service uses its public keys to verify access tokens.
@@ -24,6 +26,12 @@ Run the service:
 
 ```bash
 ./build-debug/smirkly-chat --config ./configs/static_config.yaml
+```
+
+Apply migrations manually outside the devcontainer:
+
+```bash
+docker compose --profile dev run --rm smirkly-chat-migrate-dev
 ```
 
 Local ports:

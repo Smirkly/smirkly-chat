@@ -1,4 +1,9 @@
 ARG USERVER_IMAGE=ghcr.io/userver-framework/ubuntu-24.04-userver:v3.0@sha256:3477357e5d6b874d69676b38d084dc153097c9d7a85f09fb5b059427dcfee990
+ARG MIGRATE_IMAGE=migrate/migrate:v4.19.1@sha256:cc4ad8e19d66791e3689405d9a028ce6e9614f32032db14acda1469f7201d6e4
+
+FROM ${MIGRATE_IMAGE} AS migrate
+
+COPY migrations /migrations
 
 FROM ${USERVER_IMAGE} AS builder
 

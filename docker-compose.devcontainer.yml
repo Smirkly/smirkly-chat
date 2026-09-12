@@ -17,6 +17,18 @@ services:
       timeout: 3s
       retries: 20
 
+  smirkly-chat-migrate-devcontainer:
+    image: ${SMIRKLY_MIGRATE_DEV_IMAGE:-migrate/migrate:v4.19.1@sha256:cc4ad8e19d66791e3689405d9a028ce6e9614f32032db14acda1469f7201d6e4}
+    depends_on:
+      smirkly-chat-postgres:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations:ro
+    command:
+      - -path=/migrations
+      - -database=${MIGRATE_DATABASE_URL:-postgres://smirkly_chat:smirkly_chat@smirkly-chat-postgres:5432/smirkly_chat?sslmode=disable}
+      - up
+
   smirkly-chat-redis:
     image: redis:7.4.2-alpine
     container_name: smirkly-chat-redis
@@ -59,8 +71,8 @@ services:
     container_name: smirkly-chat-workspace
     user: developer
     depends_on:
-      smirkly-chat-postgres:
-        condition: service_healthy
+      smirkly-chat-migrate-devcontainer:
+        condition: service_completed_successfully
       smirkly-chat-redis:
         condition: service_healthy
     working_dir: /workspace
