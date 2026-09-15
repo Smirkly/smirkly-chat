@@ -10,8 +10,11 @@ constexpr std::size_t kMaxMessageTextSize = 4096;
 }
 
 namespace smirkly::chat::application::usecases {
-SendMessageUseCase::SendMessageUseCase(ports::MessageRepository& messages)
-    : messages_(messages) {}
+SendMessageUseCase::SendMessageUseCase(
+    ports::TransactionManager& transactions,
+    ports::ConversationMemberRepository& members,
+    ports::MessageRepository& messages)
+    : transactions_(transactions), members_(members), messages_(messages) {}
 
 contracts::SendMessageResult SendMessageUseCase::Execute(
     const contracts::SendMessageCommand& command) const {
@@ -22,22 +25,31 @@ contracts::SendMessageResult SendMessageUseCase::Execute(
     throw errors::MessageTooLong("the text is too long");
   }
 
-  auto result =
-      messages_.CreateOrGetIfMember(command.author_id, command.conversation_id,
-                                    command.client_message_id, command.text);
-
-  if (!result) {
+  auto transaction = transactions_.Begin("chat.message.send");
+  if (!members_.Exists(*transaction, command.conversation_id,
+                       command.author_id)) {
     throw errors::ConversationAccessDenied("conversation access denied");
   }
-  if (!result->was_created) {
-    if ((result->message.GetConversationId() != command.conversation_id) ||
-        (result->message.GetText() != command.text)) {
-      throw errors::IdempotencyConflict("idempotency conflict");
-    }
+
+  const ports::NewMessageData data{
+      .client_message_id = command.client_message_id,
+      .conversation_id = command.conversation_id,
+      .author_id = command.author_id,
+      .text = command.text,
+  };
+
+  auto result = messages_.CreateOrGet(*transaction, data);
+
+  if (!result.was_created &&
+      ((result.message.GetConversationId() != command.conversation_id) ||
+       (result.message.GetText() != command.text))) {
+    throw errors::IdempotencyConflict("idempotency conflict");
   }
 
-  return contracts::SendMessageResult{.message = std::move(result->message),
-                                      .was_created = result->was_created};
+  transaction->Commit();
+
+  return contracts::SendMessageResult{.message = std::move(result.message),
+                                      .was_created = result.was_created};
 }
 
 }  // namespace smirkly::chat::application::usecases

@@ -31,12 +31,34 @@ endif ()
 find_package(OpenSSL REQUIRED Crypto)
 userver_setup_environment()
 
+userver_add_sql_library(
+        ${PROJECT_NAME}_sql
+        NAMESPACE
+        smirkly::chat
+        SOURCE_DIR
+        ${CMAKE_CURRENT_SOURCE_DIR}/sql/chat
+        OUTPUT_DIR
+        ${CMAKE_CURRENT_BINARY_DIR}
+        SQL_FILES
+        read/conversation_members/conversation_members_lock.sql
+        read/messages/messages_find_by_idempotency_key.sql
+        write/messages/messages_insert.sql
+)
+
 set(SMIRKLY_CHAT_SOURCES
         src/chat/api/health/liveness_handler.cpp
         src/chat/api/health/readiness_handler.cpp
         src/chat/api/v0/websocket/chat_websocket_handler.cpp
         src/chat/api/v0/websocket/protocol/event_codec.cpp
+        src/chat/api/v0/websocket/protocol/message_events.cpp
+        src/chat/api/v0/websocket/websocket_dispatcher.cpp
         src/chat/application/usecases/send_message_use_case.cpp
+        src/chat/components/chat_application_component.cpp
+        src/chat/infra/postgres/mappers/message_mapper.cpp
+        src/chat/infra/postgres/postgres_conversation_member_repository.cpp
+        src/chat/infra/postgres/postgres_message_repository.cpp
+        src/chat/infra/postgres/transactions/pg_transaction.cpp
+        src/chat/infra/postgres/transactions/pg_transaction_manager.cpp
         src/chat/platform/auth/jwks_verifier_component.cpp
 )
 
@@ -51,8 +73,21 @@ set(SMIRKLY_CHAT_DOMAIN_HEADERS
 set(SMIRKLY_CHAT_APPLICATION_HEADERS
         src/chat/application/contracts/send_message.hpp
         src/chat/application/errors/send_message.hpp
+        src/chat/application/ports/conversation_member_repository.hpp
         src/chat/application/ports/message_repository.hpp
+        src/chat/application/ports/uow/db_transaction.hpp
+        src/chat/application/ports/uow/transaction_manager.hpp
         src/chat/application/usecases/send_message_use_case.hpp
+)
+
+set(SMIRKLY_CHAT_INFRA_HEADERS
+        src/chat/infra/postgres/mappers/message_mapper.hpp
+        src/chat/infra/postgres/postgres_conversation_member_repository.hpp
+        src/chat/infra/postgres/postgres_message_repository.hpp
+        src/chat/infra/postgres/transactions/pg_transaction.hpp
+        src/chat/infra/postgres/transactions/pg_transaction_manager.hpp
+        src/chat/infra/postgres/transactions/pg_tx_cast.hpp
+        src/chat/infra/postgres/types/message_row.hpp
 )
 
 add_library(
@@ -60,6 +95,7 @@ add_library(
         ${SMIRKLY_CHAT_SOURCES}
         ${SMIRKLY_CHAT_DOMAIN_HEADERS}
         ${SMIRKLY_CHAT_APPLICATION_HEADERS}
+        ${SMIRKLY_CHAT_INFRA_HEADERS}
 )
 target_compile_features(smirkly-chat-objs PUBLIC cxx_std_20)
 target_include_directories(smirkly-chat-objs PUBLIC src)
@@ -67,6 +103,7 @@ target_link_libraries(
         smirkly-chat-objs
         PUBLIC
         OpenSSL::Crypto
+        ${PROJECT_NAME}_sql
         userver::core
         userver::kafka
         userver::postgresql
@@ -86,7 +123,10 @@ if (SMIRKLY_CHAT_ENABLE_TESTSUITE)
             smirkly-chat-unittest
             tests/unit/domain_types_test.cpp
             tests/unit/jwt_utils_test.cpp
+            tests/unit/message_mapper_test.cpp
+            tests/unit/message_events_test.cpp
             tests/unit/message_test.cpp
+            tests/unit/postgres_transaction_test.cpp
             tests/unit/send_message_contract_test.cpp
             tests/unit/send_message_errors_test.cpp
             tests/unit/send_message_use_case_test.cpp
@@ -103,6 +143,7 @@ if (SMIRKLY_CHAT_ENABLE_TESTSUITE)
             TEST_SUFFIX functional
             WORKING_DIRECTORY tests/functional
             REQUIREMENTS ${CMAKE_CURRENT_SOURCE_DIR}/requirements.txt
+            SQL_LIBRARY ${PROJECT_NAME}_sql
     )
 endif ()
 
