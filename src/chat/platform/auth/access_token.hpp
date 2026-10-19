@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <stdexcept>
 #include <string>
 
@@ -8,6 +9,7 @@ namespace smirkly::chat::platform::auth {
 struct AccessTokenClaims final {
   std::string user_id;
   std::string session_id;
+  std::chrono::sys_seconds expires_at;
 };
 
 class InvalidAccessToken final : public std::runtime_error {

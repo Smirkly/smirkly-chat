@@ -1,13 +1,17 @@
 #include <chat/api/v0/websocket/chat_websocket_handler.hpp>
 
+#include <chrono>
 #include <string>
 
 #include <userver/components/component_context.hpp>
+#include <userver/engine/deadline.hpp>
+#include <userver/engine/future_status.hpp>
 #include <userver/engine/task/cancel.hpp>
 #include <userver/formats/json/value_builder.hpp>
 #include <userver/http/common_headers.hpp>
 #include <userver/logging/log.hpp>
 #include <userver/server/http/http_status.hpp>
+#include <userver/utils/async.hpp>
 #include <userver/utils/boost_uuid4.hpp>
 
 #include <chat/api/v0/websocket/protocol/event_codec.hpp>
@@ -70,13 +74,64 @@ void ChatWebsocketHandler::Handle(
     userver::websocket::WebSocketConnection& websocket,
     userver::server::request::RequestContext& context) const {
   const auto& claims = context.GetUserData<platform::auth::AccessTokenClaims>();
+
+  const auto remaining = claims.expires_at - std::chrono::system_clock::now();
+
+  const auto token_deadline =
+      userver::engine::Deadline::FromDuration(remaining);
+
+  if (token_deadline.IsReached()) {
+    websocket.Close(userver::websocket::CloseStatus::kPolicyViolation);
+    return;
+  }
   websocket.SendText(ConnectedMessage(claims));
+
   const domain::UserId authenticated_user{
       userver::utils::BoostUuidFromString(claims.user_id)};
 
   userver::websocket::Message message;
   while (!userver::engine::current_task::ShouldCancel()) {
-    websocket.Recv(message);
+    if (token_deadline.IsReached()) {
+      websocket.Close(userver::websocket::CloseStatus::kPolicyViolation);
+      return;
+    }
+
+    auto receive_task =
+        userver::utils::Async("websocket-receive", [&websocket] {
+          userver::websocket::Message incoming;
+          websocket.Recv(incoming);
+          return incoming;
+        });
+
+    const auto status = receive_task.WaitNothrowUntil(token_deadline);
+    switch (status) {
+      case userver::engine::FutureStatus::kCancelled:
+        receive_task.SyncCancel();
+        return;
+      case userver::engine::FutureStatus::kTimeout:
+        // Finish the reader before sending a close frame on the same
+        // connection.
+        receive_task.SyncCancel();
+        if (userver::engine::current_task::ShouldCancel()) {
+          return;
+        }
+        websocket.Close(userver::websocket::CloseStatus::kPolicyViolation);
+        return;
+      case userver::engine::FutureStatus::kReady:
+        message = receive_task.Get();
+        break;
+    }
+
+    if (userver::engine::current_task::ShouldCancel()) {
+      return;
+    }
+
+    if (token_deadline.IsReached() ||
+        std::chrono::system_clock::now() >= claims.expires_at) {
+      websocket.Close(userver::websocket::CloseStatus::kPolicyViolation);
+      return;
+    }
+
     if (message.close_status) break;
 
     if (!message.is_text) {
@@ -99,6 +154,9 @@ void ChatWebsocketHandler::Handle(
     }
   }
 
+  if (userver::engine::current_task::ShouldCancel()) {
+    return;
+  }
   if (message.close_status) websocket.Close(*message.close_status);
 }
 
