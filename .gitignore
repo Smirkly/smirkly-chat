@@ -8,5 +8,6 @@ compile_commands.json
 __pycache__/
 .pytest_cache/
 *.pyc
+/.env
 configs/config_vars.prod.yaml
 configs/secrets/

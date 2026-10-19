@@ -11,6 +11,7 @@
 #include <chat/api/health/liveness_handler.hpp>
 #include <chat/api/health/readiness_handler.hpp>
 #include <chat/api/v0/websocket/chat_websocket_handler.hpp>
+#include <chat/components/chat_application_component.hpp>
 #include <chat/platform/auth/jwks_verifier_component.hpp>
 #include <userver/storages/postgres/component.hpp>
 #include <userver/storages/redis/component.hpp>
@@ -40,6 +41,7 @@ int main(int argc, char* argv[]) {
           .Append<userver::server::handlers::TestsControl>()
 #endif
           .Append<smirkly::chat::platform::auth::JwksVerifierComponent>()
+          .Append<smirkly::chat::components::ChatApplicationComponent>()
           .Append<smirkly::chat::api::health::LivenessHandler>()
           .Append<smirkly::chat::api::health::ReadinessHandler>()
           .Append<smirkly::chat::api::v0::ChatWebsocketHandler>();

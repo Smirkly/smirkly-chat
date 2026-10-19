@@ -48,3 +48,38 @@ jobs:
         run: |
           find src tests/unit -type f \( -name '*.cpp' -o -name '*.hpp' \) -print0 \
             | xargs -0 clang-format --dry-run --Werror
+
+  migrations:
+    name: Migration round trip
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: chat_migrations
+          POSTGRES_USER: smirkly_chat
+          POSTGRES_PASSWORD: smirkly_chat
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U smirkly_chat -d chat_migrations"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply, roll back, and reapply migrations
+        env:
+          DATABASE_URL: postgres://smirkly_chat:smirkly_chat@127.0.0.1:5432/chat_migrations?sslmode=disable
+        run: |
+          run_migrate() {
+            docker run --rm --network host \
+              -v "$PWD/migrations:/migrations:ro" \
+              migrate/migrate:v4.19.1@sha256:cc4ad8e19d66791e3689405d9a028ce6e9614f32032db14acda1469f7201d6e4 \
+              -path=/migrations -database="$DATABASE_URL" "$@"
+          }
+
+          run_migrate up
+          run_migrate down -all
+          run_migrate up

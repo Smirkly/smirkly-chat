@@ -190,21 +190,28 @@ class JwksVerifierComponent::Impl final {
         throw InvalidAccessToken("invalid access token claims");
       }
 
-      const auto now = std::chrono::duration_cast<std::chrono::seconds>(
-                           std::chrono::system_clock::now().time_since_epoch())
-                           .count();
-      if (payload["exp"].As<std::int64_t>() <= now) {
+      const auto now = std::chrono::floor<std::chrono::seconds>(
+          std::chrono::system_clock::now());
+
+      const auto expires_at = std::chrono::sys_seconds{
+          std::chrono::seconds{payload["exp"].As<std::int64_t>()}};
+
+      if (now >= expires_at) {
         throw InvalidAccessToken("access token expired");
       }
-      if (!payload["nbf"].IsMissing() &&
-          payload["nbf"].As<std::int64_t>() > now) {
-        throw InvalidAccessToken("access token is not active");
+
+      if (!payload["nbf"].IsMissing()) {
+        const auto not_before = std::chrono::sys_seconds{
+            std::chrono::seconds{payload["nbf"].As<std::int64_t>()}};
+
+        if (now < not_before) {
+          throw InvalidAccessToken("access token is not active");
+        }
       }
 
-      return {
-          .user_id = CanonicalUuid(payload["sub"]),
-          .session_id = CanonicalUuid(payload["sid"]),
-      };
+      return {.user_id = CanonicalUuid(payload["sub"]),
+              .session_id = CanonicalUuid(payload["sid"]),
+              .expires_at = expires_at};
     } catch (const InvalidAccessToken&) {
       throw;
     } catch (const JwksUnavailable&) {

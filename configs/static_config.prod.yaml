@@ -84,6 +84,8 @@ components_manager:
             audience: $auth-jwt-audience
             cache-ttl-seconds: 300
             request-timeout-ms: 2000
+        chat-application:
+            postgres-component: postgres-chat
         handler-chat-websocket:
             path: /chat/v0/ws
             method: GET

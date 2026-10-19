@@ -14,4 +14,9 @@ class InvalidEnvelope final : public std::runtime_error {
  public:
   using std::runtime_error::runtime_error;
 };
+
+class InvalidEventPayload final : public std::runtime_error {
+ public:
+  using std::runtime_error::runtime_error;
+};
 }  // namespace smirkly::chat::api::v0::websocket::protocol

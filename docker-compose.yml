@@ -1,3 +1,15 @@
+x-chat-build: &chat-build
+  context: .
+  dockerfile: Dockerfile
+  args:
+    USERVER_IMAGE: ${USERVER_IMAGE:-ghcr.io/userver-framework/ubuntu-24.04-userver:v3.0@sha256:3477357e5d6b874d69676b38d084dc153097c9d7a85f09fb5b059427dcfee990}
+    MIGRATE_IMAGE: ${MIGRATE_IMAGE:-migrate/migrate:v4.19.1@sha256:cc4ad8e19d66791e3689405d9a028ce6e9614f32032db14acda1469f7201d6e4}
+
+x-migrate-command: &migrate-command
+  - -path=/migrations
+  - -database=${MIGRATE_DATABASE_URL:-postgres://smirkly_chat:smirkly_chat@postgres:5432/smirkly_chat?sslmode=disable}
+  - up
+
 services:
   postgres:
     image: postgres:16
@@ -45,23 +57,44 @@ services:
     ports:
       - "${KAFKA_PORT:-9092}:9092"
 
+  smirkly-chat-migrate-dev:
+    profiles: ["dev"]
+    image: ${SMIRKLY_MIGRATE_DEV_IMAGE:-migrate/migrate:v4.19.1@sha256:cc4ad8e19d66791e3689405d9a028ce6e9614f32032db14acda1469f7201d6e4}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations:ro
+    command: *migrate-command
+
+  smirkly-chat-migrate:
+    profiles: ["prod"]
+    build:
+      <<: *chat-build
+      target: migrate
+    image: ${SMIRKLY_CHAT_MIGRATE_IMAGE:-smirkly-chat-migrate:prod}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: *migrate-command
+
   smirkly-chat:
     profiles: ["prod"]
     platform: linux/amd64
     build:
-      context: .
+      <<: *chat-build
       target: prod
     image: smirkly-chat:prod
     depends_on:
-      postgres:
-        condition: service_healthy
+      smirkly-chat-migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     ports:
       - "${SMIRKLY_CHAT_PORT:-8081}:8080"
       - "${SMIRKLY_CHAT_MONITOR_PORT:-8082}:8082"
     environment:
-      SECDIST_CONFIG: ${SECDIST_CONFIG:?SECDIST_CONFIG is required}
+      SECDIST_CONFIG: ${SECDIST_CONFIG:-}
     volumes:
       - ${SMIRKLY_CHAT_CONFIG_VARS_PATH:-./configs/config_vars.prod.yaml}:/app/configs/config_vars.yaml:ro
 

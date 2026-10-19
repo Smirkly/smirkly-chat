@@ -31,11 +31,21 @@ def userver_config_auth_jwks(mockserver_info):
 
 
 @pytest.fixture(scope="session")
-def pgsql_local(service_source_dir, pgsql_local_create):
-    schemas = discover.find_schemas(
-        None, [service_source_dir / "tests/functional/schemas"]
+def pgsql_local(service_source_dir, tmp_path_factory, pgsql_local_create):
+    schema_dir = tmp_path_factory.mktemp("pgsql_schema")
+    schema_path = schema_dir / "chat.sql"
+    migration_dir = service_source_dir / "migrations"
+    up_migrations = sorted(migration_dir.glob("*.up.sql"))
+    if not up_migrations:
+        raise RuntimeError("no PostgreSQL migrations found")
+
+    schema_sql = "\n\n".join(
+        path.read_text(encoding="utf-8") for path in up_migrations
     )
-    return pgsql_local_create(list(schemas.values()))
+    schema_path.write_text(schema_sql, encoding="utf-8")
+
+    databases = discover.find_schemas(None, [schema_dir])
+    return pgsql_local_create(list(databases.values()))
 
 
 @pytest.fixture(scope="session")

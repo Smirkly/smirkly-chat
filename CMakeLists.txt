@@ -2,10 +2,10 @@ cmake_minimum_required(VERSION 3.21...3.31)
 project(smirkly-chat VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_EXTENSIONS OFF)
-if(CMAKE_GENERATOR MATCHES "Ninja")
+if (CMAKE_GENERATOR MATCHES "Ninja")
     set_property(GLOBAL PROPERTY JOB_POOLS link_pool=1)
     set(CMAKE_JOB_POOL_LINK link_pool)
-endif()
+endif ()
 
 option(SMIRKLY_CHAT_ENABLE_TESTSUITE "Enable userver functional tests" ON)
 
@@ -20,32 +20,90 @@ set(USERVER_FEATURE_TESTSUITE ${SMIRKLY_CHAT_ENABLE_TESTSUITE})
 set(USERVER_FEATURE_UTEST ${SMIRKLY_CHAT_ENABLE_TESTSUITE})
 
 find_package(
-    userver 3.0 EXACT
-    COMPONENTS core kafka postgresql redis
-    QUIET
+        userver 3.0 EXACT
+        COMPONENTS core kafka postgresql redis
+        QUIET
 )
-if(NOT userver_FOUND)
+if (NOT userver_FOUND)
     download_userver(TRY_DIR third_party/userver GIT_TAG v3.0)
-endif()
+endif ()
 
 find_package(OpenSSL REQUIRED Crypto)
 userver_setup_environment()
 
-set(SMIRKLY_CHAT_SOURCES
-    src/chat/api/health/liveness_handler.cpp
-    src/chat/api/health/readiness_handler.cpp
-    src/chat/api/v0/websocket/chat_websocket_handler.cpp
-    src/chat/api/v0/websocket/protocol/event_codec.cpp
-    src/chat/platform/auth/jwks_verifier_component.cpp
+userver_add_sql_library(
+        ${PROJECT_NAME}_sql
+        NAMESPACE
+        smirkly::chat
+        SOURCE_DIR
+        ${CMAKE_CURRENT_SOURCE_DIR}/sql/chat
+        OUTPUT_DIR
+        ${CMAKE_CURRENT_BINARY_DIR}
+        SQL_FILES
+        read/conversation_members/conversation_members_lock.sql
+        read/messages/messages_find_by_idempotency_key.sql
+        write/messages/messages_insert.sql
 )
 
-add_library(smirkly-chat-objs OBJECT ${SMIRKLY_CHAT_SOURCES})
+set(SMIRKLY_CHAT_SOURCES
+        src/chat/api/health/liveness_handler.cpp
+        src/chat/api/health/readiness_handler.cpp
+        src/chat/api/v0/websocket/chat_websocket_handler.cpp
+        src/chat/api/v0/websocket/protocol/event_codec.cpp
+        src/chat/api/v0/websocket/protocol/message_events.cpp
+        src/chat/api/v0/websocket/websocket_dispatcher.cpp
+        src/chat/application/usecases/send_message_use_case.cpp
+        src/chat/components/chat_application_component.cpp
+        src/chat/infra/postgres/mappers/message_mapper.cpp
+        src/chat/infra/postgres/postgres_conversation_member_repository.cpp
+        src/chat/infra/postgres/postgres_message_repository.cpp
+        src/chat/infra/postgres/transactions/pg_transaction.cpp
+        src/chat/infra/postgres/transactions/pg_transaction_manager.cpp
+        src/chat/platform/auth/jwks_verifier_component.cpp
+)
+
+set(SMIRKLY_CHAT_DOMAIN_HEADERS
+        src/chat/domain/types/client_message_id.hpp
+        src/chat/domain/types/conversation_id.hpp
+        src/chat/domain/types/message_id.hpp
+        src/chat/domain/types/user_id.hpp
+        src/chat/domain/message.hpp
+)
+
+set(SMIRKLY_CHAT_APPLICATION_HEADERS
+        src/chat/application/contracts/send_message.hpp
+        src/chat/application/errors/send_message.hpp
+        src/chat/application/ports/conversation_member_repository.hpp
+        src/chat/application/ports/message_repository.hpp
+        src/chat/application/ports/uow/db_transaction.hpp
+        src/chat/application/ports/uow/transaction_manager.hpp
+        src/chat/application/usecases/send_message_use_case.hpp
+)
+
+set(SMIRKLY_CHAT_INFRA_HEADERS
+        src/chat/infra/postgres/mappers/message_mapper.hpp
+        src/chat/infra/postgres/postgres_conversation_member_repository.hpp
+        src/chat/infra/postgres/postgres_message_repository.hpp
+        src/chat/infra/postgres/transactions/pg_transaction.hpp
+        src/chat/infra/postgres/transactions/pg_transaction_manager.hpp
+        src/chat/infra/postgres/transactions/pg_tx_cast.hpp
+        src/chat/infra/postgres/types/message_row.hpp
+)
+
+add_library(
+        smirkly-chat-objs OBJECT
+        ${SMIRKLY_CHAT_SOURCES}
+        ${SMIRKLY_CHAT_DOMAIN_HEADERS}
+        ${SMIRKLY_CHAT_APPLICATION_HEADERS}
+        ${SMIRKLY_CHAT_INFRA_HEADERS}
+)
 target_compile_features(smirkly-chat-objs PUBLIC cxx_std_20)
 target_include_directories(smirkly-chat-objs PUBLIC src)
 target_link_libraries(
-    smirkly-chat-objs
-    PUBLIC
+        smirkly-chat-objs
+        PUBLIC
         OpenSSL::Crypto
+        ${PROJECT_NAME}_sql
         userver::core
         userver::kafka
         userver::postgresql
@@ -55,39 +113,48 @@ target_link_libraries(
 add_executable(smirkly-chat src/main.cpp)
 target_compile_features(smirkly-chat PRIVATE cxx_std_20)
 target_compile_definitions(
-    smirkly-chat
-    PRIVATE SMIRKLY_CHAT_ENABLE_TESTSUITE=$<BOOL:${SMIRKLY_CHAT_ENABLE_TESTSUITE}>
+        smirkly-chat
+        PRIVATE SMIRKLY_CHAT_ENABLE_TESTSUITE=$<BOOL:${SMIRKLY_CHAT_ENABLE_TESTSUITE}>
 )
 target_link_libraries(smirkly-chat PRIVATE smirkly-chat-objs)
 
-if(SMIRKLY_CHAT_ENABLE_TESTSUITE)
+if (SMIRKLY_CHAT_ENABLE_TESTSUITE)
     add_executable(
-        smirkly-chat-unittest
-        tests/unit/jwt_utils_test.cpp
-        tests/unit/websocket_protocol_test.cpp
+            smirkly-chat-unittest
+            tests/unit/domain_types_test.cpp
+            tests/unit/jwt_utils_test.cpp
+            tests/unit/message_mapper_test.cpp
+            tests/unit/message_events_test.cpp
+            tests/unit/message_test.cpp
+            tests/unit/postgres_transaction_test.cpp
+            tests/unit/send_message_contract_test.cpp
+            tests/unit/send_message_errors_test.cpp
+            tests/unit/send_message_use_case_test.cpp
+            tests/unit/websocket_protocol_test.cpp
     )
     target_link_libraries(
-        smirkly-chat-unittest
-        PRIVATE smirkly-chat-objs userver::utest
+            smirkly-chat-unittest
+            PRIVATE smirkly-chat-objs userver::utest
     )
     add_google_tests(smirkly-chat-unittest)
 
     userver_testsuite_add_simple(
-        SERVICE_TARGET smirkly-chat
-        TEST_SUFFIX functional
-        WORKING_DIRECTORY tests/functional
-        REQUIREMENTS ${CMAKE_CURRENT_SOURCE_DIR}/requirements.txt
+            SERVICE_TARGET smirkly-chat
+            TEST_SUFFIX functional
+            WORKING_DIRECTORY tests/functional
+            REQUIREMENTS ${CMAKE_CURRENT_SOURCE_DIR}/requirements.txt
+            SQL_LIBRARY ${PROJECT_NAME}_sql
     )
-endif()
+endif ()
 
 include(GNUInstallDirs)
 install(
-    TARGETS smirkly-chat
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    COMPONENT smirkly-chat
+        TARGETS smirkly-chat
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        COMPONENT smirkly-chat
 )
 install(
-    FILES configs/static_config.prod.yaml
-    DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/smirkly-chat
-    COMPONENT smirkly-chat
+        FILES configs/static_config.prod.yaml
+        DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/smirkly-chat
+        COMPONENT smirkly-chat
 )
