@@ -167,6 +167,16 @@ UTEST(MessageEvents, PreservesEmptyTextForApplicationValidation) {
   EXPECT_TRUE(decoded.text.empty());
 }
 
+UTEST(MessageEvents, PreservesNulByteForApplicationValidation) {
+  auto payload = userver::formats::json::ValueBuilder{ValidPayload()};
+  payload["text"] = std::string{"before\0after", 12};
+
+  const auto decoded = DecodeSendMessagePayload(payload.ExtractValue());
+
+  EXPECT_EQ(decoded.text.size(), 12);
+  EXPECT_EQ(decoded.text.find('\0'), 6);
+}
+
 UTEST(MessageEvents, PreservesLongTextForApplicationValidation) {
   auto payload = userver::formats::json::ValueBuilder{ValidPayload()};
   payload["text"] = std::string(4097, 'a');

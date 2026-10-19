@@ -1,6 +1,7 @@
 #include <chat/application/usecases/send_message_use_case.hpp>
 
 #include <cstddef>
+#include <string>
 #include <utility>
 
 #include <chat/application/errors/send_message.hpp>
@@ -20,6 +21,9 @@ contracts::SendMessageResult SendMessageUseCase::Execute(
     const contracts::SendMessageCommand& command) const {
   if (command.text.empty()) {
     throw errors::InvalidMessageText("the text is empty");
+  }
+  if (command.text.find('\0') != std::string::npos) {
+    throw errors::InvalidMessageText("the text contains a NUL byte");
   }
   if (command.text.size() > kMaxMessageTextSize) {
     throw errors::MessageTooLong("the text is too long");

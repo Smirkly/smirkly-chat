@@ -64,7 +64,7 @@ std::string WebsocketDispatcher::Dispatch(
     return Error("chat.invalid_payload", "invalid message.send payload",
                  envelope.request_id);
   } catch (const application::errors::InvalidMessageText&) {
-    return Error("chat.invalid_payload", "message text must not be empty",
+    return Error("chat.invalid_payload", "message text is invalid",
                  envelope.request_id);
   } catch (const application::errors::MessageTooLong&) {
     return Error("chat.message_too_long",

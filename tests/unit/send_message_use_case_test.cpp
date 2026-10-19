@@ -1,5 +1,6 @@
 #include <chat/application/usecases/send_message_use_case.hpp>
 
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <exception>
@@ -179,6 +180,23 @@ UTEST(SendMessageUseCase, RejectsEmptyTextWithoutStartingTransaction) {
   EXPECT_EQ(context.transactions.state.begin_count, 0);
   EXPECT_EQ(context.members.call_count, 0);
   EXPECT_EQ(context.messages.call_count, 0);
+}
+
+UTEST(SendMessageUseCase, RejectsNulByteWithoutStartingTransaction) {
+  constexpr std::array<std::size_t, 3> kNulPositions{0, 2, 5};
+
+  for (const auto nul_position : kNulPositions) {
+    SCOPED_TRACE(nul_position);
+    TestContext context;
+    auto text = std::string{"Hello"};
+    text.insert(nul_position, 1, '\0');
+    const auto command = MakeCommand(std::move(text));
+
+    EXPECT_THROW(context.use_case.Execute(command), errors::InvalidMessageText);
+    EXPECT_EQ(context.transactions.state.begin_count, 0);
+    EXPECT_EQ(context.members.call_count, 0);
+    EXPECT_EQ(context.messages.call_count, 0);
+  }
 }
 
 UTEST(SendMessageUseCase,

@@ -389,6 +389,61 @@ async def test_message_send_validates_text(
     assert response["payload"]["code"] == expected_code
 
 
+async def test_message_send_rejects_nul_text_and_keeps_connection_usable(
+    websocket_client, authenticated_identity, pgsql
+):
+    token, user_id, _ = authenticated_identity
+    conversation_id = _create_conversation(pgsql, user_id)
+    client_message_id = str(uuid.uuid4())
+
+    async with websocket_client.get(
+        "chat/v0/ws", extra_headers={"Authorization": f"Bearer {token}"}
+    ) as websocket:
+        await websocket.recv()
+        response = await _send_message(
+            websocket,
+            request_id="nul-text",
+            conversation_id=conversation_id,
+            client_message_id=client_message_id,
+            text="before\0after",
+        )
+
+        assert response == {
+            "type": "error",
+            "request_id": "nul-text",
+            "payload": {
+                "code": "chat.invalid_payload",
+                "message": "message text is invalid",
+            },
+        }
+
+        await websocket.send(
+            json.dumps(
+                {
+                    "type": "ping",
+                    "request_id": "after-invalid-text",
+                    "payload": {},
+                }
+            )
+        )
+        assert json.loads(await websocket.recv()) == {
+            "type": "pong",
+            "request_id": "after-invalid-text",
+            "payload": {},
+        }
+
+    cursor = pgsql["chat"].cursor()
+    cursor.execute(
+        """
+        SELECT COUNT(*)
+        FROM messages
+        WHERE author_id = %s AND client_message_id = %s
+        """,
+        (user_id, client_message_id),
+    )
+    assert cursor.fetchone()[0] == 0
+
+
 async def test_message_send_rejects_invalid_payload(
     websocket_client, authenticated_identity
 ):
