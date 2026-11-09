@@ -9,13 +9,18 @@ It is an implementation contract, not a claim that fan-out is already available.
 - The server accepts `ping` and `message.send`.
 - `message.send` checks conversation membership and persists the message in PostgreSQL.
 - The sender receives `message.created`.
-- The server does not yet push the new message to other connected members.
+- On a single service instance, newly created messages are pushed as `message.new`
+  to every other active WebSocket connection belonging to a conversation member.
+- Idempotent retries return the original `message.created` response without
+  publishing a second `message.new` event.
 - Message history retrieval is not implemented yet.
 
 ## First delivery milestone
 
-Implement in-process delivery for a single Chat service instance while keeping
-PostgreSQL as the source of truth.
+The single-instance in-process delivery path is implemented. PostgreSQL remains
+the source of truth; the in-memory registry is only a best-effort live fan-out
+mechanism. A mailbox overflow or disconnected recipient does not roll back the
+committed message.
 
 ### Send flow
 
@@ -73,6 +78,6 @@ The event payload for `message.new` uses the same message fields as
 
 ## Follow-up work
 
-After this milestone, implement cursor-based history retrieval. Only after the
-single-instance delivery path is correct should cross-instance fan-out via
-Redis Pub/Sub be introduced.
+Next, implement cursor-based history retrieval and reconnect synchronization.
+After that path is covered, add cross-instance fan-out via Redis Pub/Sub. This
+milestone does not provide durable delivery, delivery receipts, or read receipts.

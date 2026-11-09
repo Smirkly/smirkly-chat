@@ -115,7 +115,7 @@ void ChatWebsocketHandler::Handle(
       boost::uuids::to_string(boost::uuids::random_generator{}());
   const auto mailbox =
       connection_registry_.Register(claims.user_id, connection_id);
-  const ConnectionRegistration registration{
+  [[maybe_unused]] const ConnectionRegistration registration{
       connection_registry_, claims.user_id, connection_id};
 
   websocket.SendText(ConnectedMessage(claims));
