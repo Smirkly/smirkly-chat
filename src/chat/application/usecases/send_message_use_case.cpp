@@ -50,10 +50,15 @@ contracts::SendMessageResult SendMessageUseCase::Execute(
     throw errors::IdempotencyConflict("idempotency conflict");
   }
 
+  auto member_ids =
+      members_.ListUserIds(*transaction, command.conversation_id);
   transaction->Commit();
 
-  return contracts::SendMessageResult{.message = std::move(result.message),
-                                      .was_created = result.was_created};
+  return contracts::SendMessageResult{
+      .message = std::move(result.message),
+      .was_created = result.was_created,
+      .conversation_member_ids = std::move(member_ids),
+  };
 }
 
 }  // namespace smirkly::chat::application::usecases

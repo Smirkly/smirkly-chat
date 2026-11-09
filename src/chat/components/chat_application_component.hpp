@@ -6,6 +6,8 @@
 #include <userver/components/component_base.hpp>
 #include <userver/yaml_config/schema.hpp>
 
+#include <chat/application/delivery/connection_registry.hpp>
+
 namespace smirkly::chat::application::usecases {
 class SendMessageUseCase;
 }  // namespace smirkly::chat::application::usecases
@@ -27,6 +29,9 @@ class ChatApplicationComponent final
 
   [[nodiscard]] application::usecases::SendMessageUseCase&
   GetSendMessageUseCase() noexcept;
+
+  [[nodiscard]] application::delivery::ConnectionRegistry&
+  GetConnectionRegistry() noexcept;
 
   static userver::yaml_config::Schema GetStaticConfigSchema();
 

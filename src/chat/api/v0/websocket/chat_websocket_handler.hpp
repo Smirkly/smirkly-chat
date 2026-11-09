@@ -5,6 +5,7 @@
 #include <userver/server/handlers/websocket_handler.hpp>
 
 #include <chat/api/v0/websocket/websocket_dispatcher.hpp>
+#include <chat/application/delivery/connection_registry.hpp>
 #include <chat/platform/auth/jwks_verifier_component.hpp>
 
 namespace smirkly::chat::api::v0 {
@@ -27,6 +28,7 @@ class ChatWebsocketHandler final
  private:
   const platform::auth::JwksVerifierComponent& verifier_;
   websocket::WebsocketDispatcher dispatcher_;
+  application::delivery::ConnectionRegistry& connection_registry_;
 };
 
 }  // namespace smirkly::chat::api::v0

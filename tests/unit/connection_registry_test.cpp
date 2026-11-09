@@ -49,6 +49,27 @@ TEST(ConnectionRegistryTest, PublishesToEveryDeviceExceptOrigin) {
   EXPECT_EQ(event, "message.new");
 }
 
+TEST(ConnectionRegistryTest, ReplacingConnectionClosesOldMailbox) {
+  ConnectionRegistry registry;
+  auto old_mailbox = registry.Register("user-a", "same-id");
+  auto new_mailbox = registry.Register("user-a", "same-id");
+
+  EXPECT_FALSE(old_mailbox->Push("stale"));
+  EXPECT_TRUE(new_mailbox->Push("current"));
+}
+
+TEST(ConnectionRegistryTest, DuplicateRecipientIdsDoNotDuplicateEvents) {
+  ConnectionRegistry registry;
+  auto mailbox = registry.Register("user-b", "b-1");
+
+  EXPECT_EQ(registry.Publish({"user-b", "user-b"}, "sender", "message.new"),
+            1U);
+  std::string event;
+  ASSERT_TRUE(mailbox->TryPop(event));
+  EXPECT_EQ(event, "message.new");
+  EXPECT_FALSE(mailbox->TryPop(event));
+}
+
 TEST(ConnectionRegistryTest, UnregisterRemovesOnlySelectedConnection) {
   ConnectionRegistry registry;
   auto first = registry.Register("user-b", "b-1");

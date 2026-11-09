@@ -19,4 +19,19 @@ bool PostgresConversationMemberRepository::Exists(
   return !res.IsEmpty();
 }
 
+std::vector<domain::UserId> PostgresConversationMemberRepository::ListUserIds(
+    application::ports::DbTransaction& transaction,
+    const domain::ConversationId& conversation_id) {
+  auto& pg_tx =
+      AsPgTx(transaction, "PostgresConversationMemberRepository::ListUserIds");
+  const auto rows = pg_tx.Native().Execute(sql::kConversationMembersList,
+                                           conversation_id.Value());
+  std::vector<domain::UserId> result;
+  result.reserve(rows.Size());
+  for (const auto& row : rows) {
+    result.emplace_back(row["user_id"].As<boost::uuids::uuid>());
+  }
+  return result;
+}
+
 }  // namespace smirkly::chat::infra::postgres

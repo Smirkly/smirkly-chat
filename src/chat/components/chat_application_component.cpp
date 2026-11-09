@@ -19,6 +19,7 @@ struct ChatApplicationComponent::Impl final {
   infra::postgres::PgTransactionManager transaction_manager;
   infra::postgres::PostgresConversationMemberRepository member_repository;
   infra::postgres::PostgresMessageRepository message_repository;
+  application::delivery::ConnectionRegistry connection_registry;
   application::usecases::SendMessageUseCase send_message;
 
   Impl(const userver::components::ComponentConfig& config,
@@ -44,6 +45,11 @@ ChatApplicationComponent::~ChatApplicationComponent() = default;
 application::usecases::SendMessageUseCase&
 ChatApplicationComponent::GetSendMessageUseCase() noexcept {
   return impl_->send_message;
+}
+
+application::delivery::ConnectionRegistry&
+ChatApplicationComponent::GetConnectionRegistry() noexcept {
+  return impl_->connection_registry;
 }
 
 userver::yaml_config::Schema ChatApplicationComponent::GetStaticConfigSchema() {
