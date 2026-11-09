@@ -168,7 +168,10 @@ void ChatWebsocketHandler::Handle(
     }
     if (!received) continue;
 
-    if (message.close_status) break;
+    if (message.close_status) {
+      websocket.Close(*message.close_status);
+      return;
+    }
 
     if (!message.is_text) {
       websocket.SendText(websocket::protocol::EncodeError(
@@ -196,7 +199,6 @@ void ChatWebsocketHandler::Handle(
   if (userver::engine::current_task::ShouldCancel()) {
     return;
   }
-  if (message.close_status) websocket.Close(*message.close_status);
 }
 
 }  // namespace smirkly::chat::api::v0
