@@ -123,6 +123,7 @@ target_link_libraries(smirkly-chat PRIVATE smirkly-chat-objs)
 if (SMIRKLY_CHAT_ENABLE_TESTSUITE)
     add_executable(
             smirkly-chat-unittest
+            tests/unit/connection_registry_test.cpp
             tests/unit/domain_types_test.cpp
             tests/unit/jwt_utils_test.cpp
             tests/unit/message_mapper_test.cpp
