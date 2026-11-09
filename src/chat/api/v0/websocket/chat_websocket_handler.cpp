@@ -139,8 +139,8 @@ void ChatWebsocketHandler::Handle(
     userver::websocket::Message message;
     bool received = false;
     while (!received && !userver::engine::current_task::ShouldCancel()) {
-      const auto poll_deadline =
-          userver::engine::Deadline::FromDuration(std::chrono::milliseconds{100});
+      const auto poll_deadline = userver::engine::Deadline::FromDuration(
+          std::chrono::milliseconds{100});
       const auto status = receive_task.WaitNothrowUntil(poll_deadline);
       switch (status) {
         case userver::engine::FutureStatus::kCancelled:

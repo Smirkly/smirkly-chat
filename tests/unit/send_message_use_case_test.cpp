@@ -86,15 +86,17 @@ contracts::SendMessageCommand MakeCommand(std::string text = "Hello") {
           .client_message_id = MakeClientMessageId(),
           .text = std::move(text)};
 }
-domain::Message MakeStoredMessage(const contracts::SendMessageCommand& command) {
+domain::Message MakeStoredMessage(
+    const contracts::SendMessageCommand& command) {
   return {MakeMessageId(), command.client_message_id, command.conversation_id,
           command.author_id, command.text, MakeCreatedAt()};
 }
 domain::Message MakeStoredMessage(const contracts::SendMessageCommand& command,
                                   domain::ConversationId conversation_id,
                                   std::string text) {
-  return {MakeMessageId(), command.client_message_id, std::move(conversation_id),
-          command.author_id, std::move(text), MakeCreatedAt()};
+  return {MakeMessageId(), command.client_message_id,
+          std::move(conversation_id), command.author_id, std::move(text),
+          MakeCreatedAt()};
 }
 
 class FakeConversationMemberRepository final
@@ -142,7 +144,9 @@ class FakeMessageRepository final : public ports::MessageRepository {
     received_transaction = &transaction;
     received_data = data;
     if (exception) std::rethrow_exception(exception);
-    if (!next_result) throw std::logic_error("fake message repository result is not set");
+    if (!next_result) {
+      throw std::logic_error("fake message repository result is not set");
+    }
     return *next_result;
   }
   std::optional<ports::StoreMessageResult> next_result;
@@ -162,7 +166,8 @@ struct TestContext final {
 
 UTEST(SendMessageUseCase, RejectsEmptyTextWithoutStartingTransaction) {
   TestContext context;
-  EXPECT_THROW(context.use_case.Execute(MakeCommand("")), errors::InvalidMessageText);
+  EXPECT_THROW(context.use_case.Execute(MakeCommand("")),
+               errors::InvalidMessageText);
   EXPECT_EQ(context.transactions.state.begin_count, 0);
   EXPECT_EQ(context.members.call_count, 0);
   EXPECT_EQ(context.messages.call_count, 0);
@@ -174,15 +179,20 @@ UTEST(SendMessageUseCase, RejectsNulByteWithoutStartingTransaction) {
     TestContext context;
     auto text = std::string{"Hello"};
     text.insert(nul_position, 1, '\0');
-    EXPECT_THROW(context.use_case.Execute(MakeCommand(std::move(text))), errors::InvalidMessageText);
+    EXPECT_THROW(context.use_case.Execute(MakeCommand(std::move(text))),
+                 errors::InvalidMessageText);
     EXPECT_EQ(context.transactions.state.begin_count, 0);
     EXPECT_EQ(context.members.call_count, 0);
     EXPECT_EQ(context.messages.call_count, 0);
   }
 }
-UTEST(SendMessageUseCase, RejectsTextAboveMaximumLengthWithoutStartingTransaction) {
+UTEST(SendMessageUseCase,
+      RejectsTextAboveMaximumLengthWithoutStartingTransaction) {
   TestContext context;
-  EXPECT_THROW(context.use_case.Execute(MakeCommand(std::string(kMaximumTextSize + 1, 'a'))), errors::MessageTooLong);
+  EXPECT_THROW(
+      context.use_case.Execute(
+          MakeCommand(std::string(kMaximumTextSize + 1, 'a'))),
+      errors::MessageTooLong);
   EXPECT_EQ(context.transactions.state.begin_count, 0);
   EXPECT_EQ(context.members.call_count, 0);
   EXPECT_EQ(context.messages.call_count, 0);
@@ -190,7 +200,8 @@ UTEST(SendMessageUseCase, RejectsTextAboveMaximumLengthWithoutStartingTransactio
 UTEST(SendMessageUseCase, AcceptsTextAtMaximumLength) {
   TestContext context;
   const auto command = MakeCommand(std::string(kMaximumTextSize, 'a'));
-  context.messages.next_result = ports::StoreMessageResult{.message = MakeStoredMessage(command), .was_created = true};
+  context.messages.next_result = ports::StoreMessageResult{
+      .message = MakeStoredMessage(command), .was_created = true};
   const auto result = context.use_case.Execute(command);
   EXPECT_TRUE(result.was_created);
   EXPECT_EQ(result.message.GetText().size(), kMaximumTextSize);
@@ -203,25 +214,31 @@ UTEST(SendMessageUseCase, AcceptsTextAtMaximumLength) {
 UTEST(SendMessageUseCase, PassesCommandAndOneTransactionToRepositories) {
   TestContext context;
   const auto command = MakeCommand("  Hello, Smirkly!  ");
-  context.messages.next_result = ports::StoreMessageResult{.message = MakeStoredMessage(command), .was_created = true};
+  context.messages.next_result = ports::StoreMessageResult{
+      .message = MakeStoredMessage(command), .was_created = true};
   context.use_case.Execute(command);
   ASSERT_TRUE(context.members.received_conversation_id);
   ASSERT_TRUE(context.members.received_user_id);
   ASSERT_TRUE(context.messages.received_data);
   EXPECT_EQ(*context.members.received_conversation_id, command.conversation_id);
   EXPECT_EQ(*context.members.received_user_id, command.author_id);
-  EXPECT_EQ(context.members.list_transaction, context.messages.received_transaction);
+  EXPECT_EQ(context.members.list_transaction,
+            context.messages.received_transaction);
   EXPECT_EQ(*context.members.list_conversation_id, command.conversation_id);
-  EXPECT_EQ(context.members.received_transaction, context.messages.received_transaction);
+  EXPECT_EQ(context.members.received_transaction,
+            context.messages.received_transaction);
   EXPECT_EQ(context.messages.received_data->author_id, command.author_id);
-  EXPECT_EQ(context.messages.received_data->conversation_id, command.conversation_id);
-  EXPECT_EQ(context.messages.received_data->client_message_id, command.client_message_id);
+  EXPECT_EQ(context.messages.received_data->conversation_id,
+            command.conversation_id);
+  EXPECT_EQ(context.messages.received_data->client_message_id,
+            command.client_message_id);
   EXPECT_EQ(context.messages.received_data->text, command.text);
 }
 UTEST(SendMessageUseCase, RejectsConversationAccessDeniedBeforeStoringMessage) {
   TestContext context;
   context.members.exists = false;
-  EXPECT_THROW(context.use_case.Execute(MakeCommand()), errors::ConversationAccessDenied);
+  EXPECT_THROW(context.use_case.Execute(MakeCommand()),
+               errors::ConversationAccessDenied);
   EXPECT_EQ(context.members.call_count, 1);
   EXPECT_EQ(context.members.list_call_count, 0);
   EXPECT_EQ(context.messages.call_count, 0);
@@ -232,7 +249,8 @@ UTEST(SendMessageUseCase, ReturnsNewlyCreatedMessage) {
   TestContext context;
   const auto command = MakeCommand();
   const auto stored_message = MakeStoredMessage(command);
-  context.messages.next_result = ports::StoreMessageResult{.message = stored_message, .was_created = true};
+  context.messages.next_result = ports::StoreMessageResult{
+      .message = stored_message, .was_created = true};
   const auto result = context.use_case.Execute(command);
   EXPECT_TRUE(result.was_created);
   EXPECT_EQ(result.message.GetId(), stored_message.GetId());
@@ -246,7 +264,8 @@ UTEST(SendMessageUseCase, ReturnsExistingMessageForIdempotentRetry) {
   TestContext context;
   const auto command = MakeCommand();
   const auto stored_message = MakeStoredMessage(command);
-  context.messages.next_result = ports::StoreMessageResult{.message = stored_message, .was_created = false};
+  context.messages.next_result = ports::StoreMessageResult{
+      .message = stored_message, .was_created = false};
   const auto result = context.use_case.Execute(command);
   EXPECT_FALSE(result.was_created);
   EXPECT_EQ(result.message.GetId(), stored_message.GetId());
@@ -256,7 +275,10 @@ UTEST(SendMessageUseCase, ReturnsExistingMessageForIdempotentRetry) {
 UTEST(SendMessageUseCase, RejectsRetryWithDifferentText) {
   TestContext context;
   const auto command = MakeCommand("current text");
-  context.messages.next_result = ports::StoreMessageResult{.message = MakeStoredMessage(command, command.conversation_id, "previous text"), .was_created = false};
+  context.messages.next_result = ports::StoreMessageResult{
+      .message = MakeStoredMessage(command, command.conversation_id,
+                                   "previous text"),
+      .was_created = false};
   EXPECT_THROW(context.use_case.Execute(command), errors::IdempotencyConflict);
   EXPECT_EQ(context.transactions.state.commit_count, 0);
   EXPECT_EQ(context.transactions.state.rollback_count, 1);
@@ -264,14 +286,18 @@ UTEST(SendMessageUseCase, RejectsRetryWithDifferentText) {
 UTEST(SendMessageUseCase, RejectsRetryWithDifferentConversation) {
   TestContext context;
   const auto command = MakeCommand();
-  context.messages.next_result = ports::StoreMessageResult{.message = MakeStoredMessage(command, MakeOtherConversationId(), command.text), .was_created = false};
+  context.messages.next_result = ports::StoreMessageResult{
+      .message = MakeStoredMessage(command, MakeOtherConversationId(),
+                                   command.text),
+      .was_created = false};
   EXPECT_THROW(context.use_case.Execute(command), errors::IdempotencyConflict);
   EXPECT_EQ(context.transactions.state.commit_count, 0);
   EXPECT_EQ(context.transactions.state.rollback_count, 1);
 }
 UTEST(SendMessageUseCase, RollsBackWhenCreateOrGetThrows) {
   TestContext context;
-  context.messages.exception = std::make_exception_ptr(std::runtime_error{"database unavailable"});
+  context.messages.exception = std::make_exception_ptr(
+      std::runtime_error{"database unavailable"});
   EXPECT_THROW(context.use_case.Execute(MakeCommand()), std::runtime_error);
   EXPECT_EQ(context.messages.call_count, 1);
   EXPECT_EQ(context.transactions.state.commit_count, 0);
