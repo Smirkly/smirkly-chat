@@ -52,6 +52,7 @@ set(SMIRKLY_CHAT_SOURCES
         src/chat/api/v0/websocket/protocol/event_codec.cpp
         src/chat/api/v0/websocket/protocol/message_events.cpp
         src/chat/api/v0/websocket/websocket_dispatcher.cpp
+        src/chat/application/delivery/connection_registry.cpp
         src/chat/application/usecases/send_message_use_case.cpp
         src/chat/components/chat_application_component.cpp
         src/chat/infra/postgres/mappers/message_mapper.cpp
@@ -72,6 +73,7 @@ set(SMIRKLY_CHAT_DOMAIN_HEADERS
 
 set(SMIRKLY_CHAT_APPLICATION_HEADERS
         src/chat/application/contracts/send_message.hpp
+        src/chat/application/delivery/connection_registry.hpp
         src/chat/application/errors/send_message.hpp
         src/chat/application/ports/conversation_member_repository.hpp
         src/chat/application/ports/message_repository.hpp
@@ -121,6 +123,7 @@ target_link_libraries(smirkly-chat PRIVATE smirkly-chat-objs)
 if (SMIRKLY_CHAT_ENABLE_TESTSUITE)
     add_executable(
             smirkly-chat-unittest
+            tests/unit/connection_registry_test.cpp
             tests/unit/domain_types_test.cpp
             tests/unit/jwt_utils_test.cpp
             tests/unit/message_mapper_test.cpp
