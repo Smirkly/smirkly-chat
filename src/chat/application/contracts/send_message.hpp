@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include <chat/domain/message.hpp>
 #include <chat/domain/types/client_message_id.hpp>
@@ -18,5 +19,6 @@ struct SendMessageCommand final {
 struct SendMessageResult final {
   domain::Message message;
   bool was_created;
+  std::vector<domain::UserId> conversation_member_ids;
 };
 }  // namespace smirkly::chat::application::contracts

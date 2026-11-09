@@ -1,6 +1,7 @@
 #include <chat/application/delivery/connection_registry.hpp>
 
 #include <algorithm>
+#include <unordered_set>
 #include <utility>
 
 namespace smirkly::chat::application::delivery {
@@ -31,11 +32,14 @@ ConnectionRegistry::MailboxPtr ConnectionRegistry::Register(
   auto mailbox = std::make_shared<OutboundMailbox>();
   std::lock_guard lock(mutex_);
   auto& entries = connections_[std::move(user_id)];
-  entries.erase(std::remove_if(entries.begin(), entries.end(),
-                               [&connection_id](const Entry& entry) {
-                                 return entry.connection_id == connection_id;
-                               }),
-                entries.end());
+  for (auto entry = entries.begin(); entry != entries.end();) {
+    if (entry->connection_id == connection_id) {
+      entry->mailbox->Close();
+      entry = entries.erase(entry);
+    } else {
+      ++entry;
+    }
+  }
   entries.push_back(Entry{std::move(connection_id), mailbox});
   return mailbox;
 }
@@ -62,9 +66,11 @@ std::size_t ConnectionRegistry::Publish(
     const std::vector<std::string>& recipient_user_ids,
     std::string_view originating_connection_id, const std::string& event) {
   std::vector<MailboxPtr> recipients;
+  std::unordered_set<std::string> seen_users;
   {
     std::lock_guard lock(mutex_);
     for (const auto& user_id : recipient_user_ids) {
+      if (!seen_users.insert(user_id).second) continue;
       const auto it = connections_.find(user_id);
       if (it == connections_.end()) continue;
       for (const auto& entry : it->second) {

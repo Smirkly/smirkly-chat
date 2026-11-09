@@ -4,9 +4,11 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include <userver/formats/json.hpp>
 #include <userver/logging/log.hpp>
+#include <userver/utils/boost_uuid4.hpp>
 
 #include <chat/api/v0/websocket/protocol/error.hpp>
 #include <chat/api/v0/websocket/protocol/event_codec.hpp>
@@ -26,12 +28,14 @@ std::string Error(std::string code, std::string message,
 }  // namespace
 
 WebsocketDispatcher::WebsocketDispatcher(
-    application::usecases::SendMessageUseCase& send_message)
-    : send_message_(send_message) {}
+    application::usecases::SendMessageUseCase& send_message,
+    application::delivery::ConnectionRegistry& connection_registry)
+    : send_message_(send_message), connection_registry_(connection_registry) {}
 
 std::string WebsocketDispatcher::Dispatch(
     const protocol::ClientEnvelope& envelope,
-    const domain::UserId& authenticated_user) const {
+    const domain::UserId& authenticated_user,
+    std::string_view connection_id) const {
   if (envelope.type == "ping") {
     return protocol::EncodeServerEnvelope({
         .type = "pong",
@@ -54,6 +58,23 @@ std::string WebsocketDispatcher::Dispatch(
         .text = std::move(payload.text),
     };
     auto result = send_message_.Execute(command);
+
+    if (result.was_created) {
+      std::vector<std::string> recipients;
+      recipients.reserve(result.conversation_member_ids.size());
+      for (const auto& user_id : result.conversation_member_ids) {
+        recipients.push_back(userver::utils::ToString(user_id.Value()));
+      }
+      const auto event = protocol::EncodeServerEnvelope({
+          .type = "message.new",
+          .request_id = std::nullopt,
+          .payload = protocol::EncodeMessageCreatedPayload(result.message),
+      });
+      const auto queued =
+          connection_registry_.Publish(recipients, connection_id, event);
+      LOG_DEBUG() << "Published message.new to " << queued
+                  << " WebSocket connections";
+    }
 
     return protocol::EncodeServerEnvelope({
         .type = "message.created",

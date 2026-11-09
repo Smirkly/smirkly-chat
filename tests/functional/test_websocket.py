@@ -1,3 +1,4 @@
+import asyncio
 import json
 import time
 import uuid
@@ -147,6 +148,73 @@ async def test_malformed_event_has_no_request_id(
             },
         }
         assert "request_id" not in response
+
+
+async def test_message_send_delivers_to_other_member_connections(
+    websocket_client, mockserver, jwt_keypair, access_token, pgsql
+):
+    _, _, jwks = jwt_keypair
+
+    @mockserver.json_handler("/auth/v0/.well-known/jwks.json")
+    def jwks_handler(_request):
+        return jwks
+
+    user_a, user_b = str(uuid.uuid4()), str(uuid.uuid4())
+    token_a = access_token(user_a, str(uuid.uuid4()), exp=int(time.time()) + 300)
+    token_b = access_token(user_b, str(uuid.uuid4()), exp=int(time.time()) + 300)
+    conversation_id = _create_conversation(pgsql)
+    cursor = pgsql["chat"].cursor()
+    cursor.executemany(
+        """
+        INSERT INTO conversation_members (conversation_id, user_id)
+        VALUES (%s, %s)
+        """,
+        [(conversation_id, user_a), (conversation_id, user_b)],
+    )
+
+    client_message_id = str(uuid.uuid4())
+    async with websocket_client.get(
+        "chat/v0/ws", extra_headers={"Authorization": f"Bearer {token_b}"}
+    ) as recipient, websocket_client.get(
+        "chat/v0/ws", extra_headers={"Authorization": f"Bearer {token_b}"}
+    ) as second_device, websocket_client.get(
+        "chat/v0/ws", extra_headers={"Authorization": f"Bearer {token_a}"}
+    ) as sender:
+        await recipient.recv()
+        await second_device.recv()
+        await sender.recv()
+
+        created = await _send_message(
+            sender,
+            request_id="delivery-request",
+            conversation_id=conversation_id,
+            client_message_id=client_message_id,
+            text="Live delivery",
+        )
+        first_event, second_event = await asyncio.gather(
+            asyncio.wait_for(recipient.recv(), timeout=2),
+            asyncio.wait_for(second_device.recv(), timeout=2),
+        )
+        repeated = await _send_message(
+            sender,
+            request_id="delivery-retry",
+            conversation_id=conversation_id,
+            client_message_id=client_message_id,
+            text="Live delivery",
+        )
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(recipient.recv(), timeout=0.2)
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(second_device.recv(), timeout=0.2)
+
+    assert created["type"] == "message.created"
+    assert created["request_id"] == "delivery-request"
+    assert repeated["type"] == "message.created"
+    assert repeated["payload"] == created["payload"]
+    for event in (json.loads(first_event), json.loads(second_event)):
+        assert event["type"] == "message.new"
+        assert "request_id" not in event
+        assert event["payload"] == created["payload"]
 
 
 async def test_message_send_creates_and_persists_message(

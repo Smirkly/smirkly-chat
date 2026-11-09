@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <deque>
 #include <memory>
 #include <mutex>
@@ -10,12 +11,9 @@
 
 namespace smirkly::chat::application::delivery {
 
-// A per-WebSocket outbound mailbox. Producers only enqueue; the socket-owning
-// handler is the sole consumer and remains the only code that writes to socket.
 class OutboundMailbox final {
  public:
   explicit OutboundMailbox(std::size_t capacity = 256) : capacity_(capacity) {}
-
   bool Push(std::string event);
   bool TryPop(std::string& event);
   void Close();
@@ -27,8 +25,6 @@ class OutboundMailbox final {
   bool closed_{false};
 };
 
-// Keeps weakly-coupled mailboxes rather than WebSocket references. A user may
-// have multiple active devices, each with its own mailbox.
 class ConnectionRegistry final {
  public:
   using MailboxPtr = std::shared_ptr<OutboundMailbox>;
@@ -44,7 +40,6 @@ class ConnectionRegistry final {
     std::string connection_id;
     MailboxPtr mailbox;
   };
-
   std::mutex mutex_;
   std::unordered_map<std::string, std::vector<Entry>> connections_;
 };

@@ -41,6 +41,7 @@ userver_add_sql_library(
         ${CMAKE_CURRENT_BINARY_DIR}
         SQL_FILES
         read/conversation_members/conversation_members_lock.sql
+        read/conversation_members/conversation_members_list.sql
         read/messages/messages_find_by_idempotency_key.sql
         write/messages/messages_insert.sql
 )
